@@ -782,8 +782,6 @@
   const rail = document.getElementById('rail');
   const sections = Array.from(document.querySelectorAll('section.plate'));
   const dots = document.getElementById('sectionDots');
-  const prevBtn = document.getElementById('prevBtn');
-  const nextBtn = document.getElementById('nextBtn');
   const restartBtn = document.getElementById('restartBtn');
 
   // The page has exactly 3 horizontal sections. There are no nested carousels:
@@ -817,13 +815,7 @@
       if (i === idx) b.setAttribute('aria-current', 'true');
       else b.removeAttribute('aria-current');
     });
-
-    prevBtn.disabled = idx === 0;
-    nextBtn.disabled = idx === sections.length - 1;
   }
-
-  prevBtn.addEventListener('click', () => goTo(currentIndex() - 1));
-  nextBtn.addEventListener('click', () => goTo(currentIndex() + 1));
 
   restartBtn.addEventListener('click', () => {
     goTo(0);
@@ -869,45 +861,59 @@
   window.addEventListener('resize', updateChrome);
   updateChrome();
 
-  // Allergy toggle (modal)
-  const mRestSim = document.getElementById('m-restSim');
-  const mRestNao = document.getElementById('m-restNao');
-  const mDetalhe = document.getElementById('m-restricao-detalhe');
-
-  mRestSim.addEventListener('change', () => mDetalhe.classList.add('show'));
-  mRestNao.addEventListener('change', () => mDetalhe.classList.remove('show'));
-
-  document.getElementById('modalForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    document.getElementById('modalSubmitNote').classList.add('show');
-  });
-
   // Floating button + modal
+  // Keep this block independent from the page navigation so a missing optional
+  // element cannot prevent the modal from being initialized.
   const fabBtn = document.getElementById('fabBtn');
   const modalOverlay = document.getElementById('modalOverlay');
   const modalClose = document.getElementById('modalClose');
-  const modalOpen = () => modalOverlay.classList.contains('open');
+  const modalForm = document.getElementById('modalForm');
+  const mRestSim = document.getElementById('m-restSim');
+  const mRestNao = document.getElementById('m-restNao');
+  const mDetalhe = document.getElementById('m-restricao-detalhe');
+  const modalSubmitNote = document.getElementById('modalSubmitNote');
+  const modalName = document.getElementById('m-nome');
+
+  const modalOpen = () => !!modalOverlay && modalOverlay.classList.contains('open');
 
   function openModal(){
+    if (!modalOverlay) return;
     modalOverlay.classList.add('open');
     modalOverlay.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
-    setTimeout(() => document.getElementById('m-nome').focus(), 50);
+    document.body.classList.add('modal-open');
+    if (modalName) window.setTimeout(() => modalName.focus(), 50);
   }
 
   function closeModal(){
+    if (!modalOverlay) return;
     modalOverlay.classList.remove('open');
     modalOverlay.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-    fabBtn.focus();
+    document.body.classList.remove('modal-open');
+    if (fabBtn) fabBtn.focus();
   }
 
-  fabBtn.addEventListener('click', openModal);
-  modalClose.addEventListener('click', closeModal);
+  if (fabBtn && modalOverlay && modalClose) {
+    fabBtn.addEventListener('click', openModal);
+    modalClose.addEventListener('click', closeModal);
 
-  modalOverlay.addEventListener('click', (e) => {
-    if (e.target === modalOverlay) closeModal();
-  });
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) closeModal();
+    });
+  }
+
+  if (mRestSim && mDetalhe) {
+    mRestSim.addEventListener('change', () => mDetalhe.classList.add('show'));
+  }
+  if (mRestNao && mDetalhe) {
+    mRestNao.addEventListener('change', () => mDetalhe.classList.remove('show'));
+  }
+
+  if (modalForm && modalSubmitNote) {
+    modalForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      modalSubmitNote.classList.add('show');
+    });
+  }
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && modalOpen()) closeModal();
