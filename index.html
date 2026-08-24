@@ -10,6 +10,8 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Allura&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Montserrat:wght@300;400;500;600&display=swap"
     rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <style>
     :root {
       --navy: #013440;
@@ -1921,11 +1923,83 @@
 
   </main>
 
-  <script>
+   <script>
+    // ---------- Firebase ----------
+    const firebaseConfig = {
+      apiKey: "AIzaSyDTHPImkSvEnpPd-AzuvROq8oinwoDqUxk",
+      authDomain: "crivoexperience.firebaseapp.com",
+      projectId: "crivoexperience",
+      storageBucket: "crivoexperience.firebasestorage.app",
+      messagingSenderId: "470331174600",
+      appId: "1:470331174600:web:0648dccad309d05c70bffd"
+    };
+    let db = null;
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+    } catch (err) {
+      console.error('Firebase não carregou:', err);
+    }
+ 
+    async function salvarResposta(origem, payload) {
+      if (!db) {
+        throw new Error('Sem conexão com o banco de dados.');
+      }
+      await db.collection('respostas').add({
+        ...payload,
+        origem,
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+ 
+    function getRadioValue(name) {
+      const el = document.querySelector(`input[name="${name}"]:checked`);
+      return el ? el.value : '';
+    }
+ 
+    function getCheckboxValues(name) {
+      return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map((el) => el.value);
+    }
+ 
+    function coletarExpectativasContribuicao() {
+      return {
+        expectativas: document.getElementById('expectativas').value.trim(),
+        contribuicao: document.getElementById('contribuicao').value.trim()
+      };
+    }
+ 
+    function coletarDadosMenu() {
+      const restricao = getRadioValue('restricao');
+      return {
+        nome: document.getElementById('nome').value.trim(),
+        empresa: document.getElementById('empresa').value.trim(),
+        pratoPrincipal: getRadioValue('principal'),
+        sobremesa: getRadioValue('sobremesa'),
+        bebidas: getCheckboxValues('bebidas'),
+        restricaoAlimentar: restricao,
+        restricaoDetalhe: restricao === 'sim' ? document.getElementById('restricao-texto').value.trim() : '',
+        ...coletarExpectativasContribuicao()
+      };
+    }
+ 
+    function coletarDadosModal() {
+      const restricao = getRadioValue('m-restricao');
+      return {
+        nome: document.getElementById('m-nome').value.trim(),
+        empresa: document.getElementById('m-empresa').value.trim(),
+        pratoPrincipal: getRadioValue('m-principal'),
+        sobremesa: getRadioValue('m-sobremesa'),
+        bebidas: getCheckboxValues('m-bebidas'),
+        restricaoAlimentar: restricao,
+        restricaoDetalhe: restricao === 'sim' ? document.getElementById('m-restricao-texto').value.trim() : '',
+        ...coletarExpectativasContribuicao()
+      };
+    }
+ 
     const rail = document.getElementById('rail');
     const sections = Array.from(document.querySelectorAll('section.plate'));
     const nav = document.getElementById('plateNav');
-
+ 
     sections.forEach((sec) => {
       const btn = document.createElement('button');
       btn.setAttribute('aria-label', 'Ir para: ' + sec.dataset.label);
@@ -1940,7 +2014,7 @@
       btn.addEventListener('blur', () => label.style.opacity = 0);
       nav.appendChild(btn);
     });
-
+ 
     function positionLabels() {
       nav.querySelectorAll('button').forEach((d) => {
         const rect = d.getBoundingClientRect();
@@ -1949,7 +2023,7 @@
     }
     window.addEventListener('resize', positionLabels);
     setTimeout(positionLabels, 50);
-
+ 
     function currentIndex() {
       return Math.max(0, Math.min(sections.length - 1, Math.round(rail.scrollLeft / window.innerWidth)));
     }
@@ -1964,7 +2038,7 @@
         if (i === idx) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
       });
     }
-
+ 
     let wheelCooldown = false;
     rail.addEventListener('wheel', (e) => {
       const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
@@ -1975,44 +2049,73 @@
       goTo(currentIndex() + (delta > 0 ? 1 : -1));
       setTimeout(() => { wheelCooldown = false; }, 700);
     }, { passive: false });
-
+ 
     window.addEventListener('keydown', (e) => {
       if (modalOpen()) return;
       if (e.key === 'ArrowRight' || e.key === 'PageDown') goTo(currentIndex() + 1);
       if (e.key === 'ArrowLeft' || e.key === 'PageUp') goTo(currentIndex() - 1);
     });
-
+ 
     rail.addEventListener('scroll', () => {
       window.clearTimeout(rail._t);
       rail._t = window.setTimeout(updateChrome, 60);
     });
     updateChrome();
-
+ 
     document.getElementById('restartBtn').addEventListener('click', () => goTo(0));
-
+ 
     // allergy toggle (inline)
     document.getElementById('restSim').addEventListener('change', () => document.getElementById('restricao-detalhe').classList.add('show'));
     document.getElementById('restNao').addEventListener('change', () => document.getElementById('restricao-detalhe').classList.remove('show'));
-
+ 
     // allergy toggle (modal)
     document.getElementById('m-restSim').addEventListener('change', () => document.getElementById('m-restricao-detalhe').classList.add('show'));
     document.getElementById('m-restNao').addEventListener('change', () => document.getElementById('m-restricao-detalhe').classList.remove('show'));
-
-    document.getElementById('menuForm').addEventListener('submit', (e) => {
+ 
+    document.getElementById('menuForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      document.getElementById('submitNote').classList.add('show');
+      const btn = e.target.querySelector('.submit-cta');
+      const note = document.getElementById('submitNote');
+      btn.disabled = true;
+      note.classList.remove('error');
+      try {
+        await salvarResposta('mesa (rolagem)', coletarDadosMenu());
+        note.textContent = 'Escolha registrada — obrigada! 🍽️';
+        note.classList.add('show');
+      } catch (err) {
+        console.error(err);
+        note.textContent = 'Não consegui salvar agora. Verifique sua conexão e tente de novo.';
+        note.classList.add('show', 'error');
+      } finally {
+        btn.disabled = false;
+      }
     });
-    document.getElementById('modalForm').addEventListener('submit', (e) => {
+ 
+    document.getElementById('modalForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      document.getElementById('modalSubmitNote').classList.add('show');
+      const btn = e.target.querySelector('.submit-cta');
+      const note = document.getElementById('modalSubmitNote');
+      btn.disabled = true;
+      note.classList.remove('error');
+      try {
+        await salvarResposta('menu flutuante', coletarDadosModal());
+        note.textContent = 'Escolha registrada — obrigada por confirmar! 🍽️';
+        note.classList.add('show');
+      } catch (err) {
+        console.error(err);
+        note.textContent = 'Não consegui salvar agora. Verifique sua conexão e tente de novo.';
+        note.classList.add('show', 'error');
+      } finally {
+        btn.disabled = false;
+      }
     });
-
+ 
     // floating button + modal
     const fabBtn = document.getElementById('fabBtn');
     const modalOverlay = document.getElementById('modalOverlay');
     const modalClose = document.getElementById('modalClose');
     const modalOpen = () => modalOverlay.classList.contains('open');
-
+ 
     function openModal() {
       modalOverlay.classList.add('open');
       modalOverlay.setAttribute('aria-hidden', 'false');
@@ -2030,7 +2133,7 @@
     modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOpen()) closeModal(); });
   </script>
-
+ 
 </body>
-
+ 
 </html>
