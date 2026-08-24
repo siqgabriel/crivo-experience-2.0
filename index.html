@@ -461,8 +461,6 @@
       color: rgba(255, 255, 255, .7);
       line-height: 1.5;
       display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 5;
       overflow: hidden;
     }
 
@@ -1148,6 +1146,18 @@
         margin-top: 6px;
       }
 
+      .eyebrow {
+        font-size: .7rem;
+        letter-spacing: .32em;
+        text-transform: uppercase;
+        color: var(--gold);
+        font-weight: 600;
+        margin-bottom: 2px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
       .apetite-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 14px 16px;
@@ -1177,7 +1187,7 @@
       }
 
       .insight-card p {
-        font-size: .64rem;
+        font-size: .5rem;
         line-height: 1.4;
         -webkit-line-clamp: 4;
       }
@@ -1923,7 +1933,7 @@
 
   </main>
 
-   <script>
+  <script>
     // ---------- Firebase ----------
     const firebaseConfig = {
       apiKey: "AIzaSyDTHPImkSvEnpPd-AzuvROq8oinwoDqUxk",
@@ -1940,7 +1950,7 @@
     } catch (err) {
       console.error('Firebase não carregou:', err);
     }
- 
+
     async function salvarResposta(origem, payload) {
       if (!db) {
         throw new Error('Sem conexão com o banco de dados.');
@@ -1951,23 +1961,23 @@
         criadoEm: firebase.firestore.FieldValue.serverTimestamp()
       });
     }
- 
+
     function getRadioValue(name) {
       const el = document.querySelector(`input[name="${name}"]:checked`);
       return el ? el.value : '';
     }
- 
+
     function getCheckboxValues(name) {
       return Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map((el) => el.value);
     }
- 
+
     function coletarExpectativasContribuicao() {
       return {
         expectativas: document.getElementById('expectativas').value.trim(),
         contribuicao: document.getElementById('contribuicao').value.trim()
       };
     }
- 
+
     function coletarDadosMenu() {
       const restricao = getRadioValue('restricao');
       return {
@@ -1981,7 +1991,7 @@
         ...coletarExpectativasContribuicao()
       };
     }
- 
+
     function coletarDadosModal() {
       const restricao = getRadioValue('m-restricao');
       return {
@@ -1995,11 +2005,11 @@
         ...coletarExpectativasContribuicao()
       };
     }
- 
+
     const rail = document.getElementById('rail');
     const sections = Array.from(document.querySelectorAll('section.plate'));
     const nav = document.getElementById('plateNav');
- 
+
     sections.forEach((sec) => {
       const btn = document.createElement('button');
       btn.setAttribute('aria-label', 'Ir para: ' + sec.dataset.label);
@@ -2014,7 +2024,7 @@
       btn.addEventListener('blur', () => label.style.opacity = 0);
       nav.appendChild(btn);
     });
- 
+
     function positionLabels() {
       nav.querySelectorAll('button').forEach((d) => {
         const rect = d.getBoundingClientRect();
@@ -2023,7 +2033,7 @@
     }
     window.addEventListener('resize', positionLabels);
     setTimeout(positionLabels, 50);
- 
+
     function currentIndex() {
       return Math.max(0, Math.min(sections.length - 1, Math.round(rail.scrollLeft / window.innerWidth)));
     }
@@ -2038,7 +2048,7 @@
         if (i === idx) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
       });
     }
- 
+
     let wheelCooldown = false;
     rail.addEventListener('wheel', (e) => {
       const delta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
@@ -2049,29 +2059,29 @@
       goTo(currentIndex() + (delta > 0 ? 1 : -1));
       setTimeout(() => { wheelCooldown = false; }, 700);
     }, { passive: false });
- 
+
     window.addEventListener('keydown', (e) => {
       if (modalOpen()) return;
       if (e.key === 'ArrowRight' || e.key === 'PageDown') goTo(currentIndex() + 1);
       if (e.key === 'ArrowLeft' || e.key === 'PageUp') goTo(currentIndex() - 1);
     });
- 
+
     rail.addEventListener('scroll', () => {
       window.clearTimeout(rail._t);
       rail._t = window.setTimeout(updateChrome, 60);
     });
     updateChrome();
- 
+
     document.getElementById('restartBtn').addEventListener('click', () => goTo(0));
- 
+
     // allergy toggle (inline)
     document.getElementById('restSim').addEventListener('change', () => document.getElementById('restricao-detalhe').classList.add('show'));
     document.getElementById('restNao').addEventListener('change', () => document.getElementById('restricao-detalhe').classList.remove('show'));
- 
+
     // allergy toggle (modal)
     document.getElementById('m-restSim').addEventListener('change', () => document.getElementById('m-restricao-detalhe').classList.add('show'));
     document.getElementById('m-restNao').addEventListener('change', () => document.getElementById('m-restricao-detalhe').classList.remove('show'));
- 
+
     document.getElementById('menuForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = e.target.querySelector('.submit-cta');
@@ -2090,7 +2100,7 @@
         btn.disabled = false;
       }
     });
- 
+
     document.getElementById('modalForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = e.target.querySelector('.submit-cta');
@@ -2109,13 +2119,13 @@
         btn.disabled = false;
       }
     });
- 
+
     // floating button + modal
     const fabBtn = document.getElementById('fabBtn');
     const modalOverlay = document.getElementById('modalOverlay');
     const modalClose = document.getElementById('modalClose');
     const modalOpen = () => modalOverlay.classList.contains('open');
- 
+
     function openModal() {
       modalOverlay.classList.add('open');
       modalOverlay.setAttribute('aria-hidden', 'false');
@@ -2133,7 +2143,7 @@
     modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modalOpen()) closeModal(); });
   </script>
- 
+
 </body>
- 
+
 </html>
