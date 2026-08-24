@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crivo Experience — Exportar respostas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --charcoal:#262422;
+    --gold:#5d8fac;
+    --text-blue:#9cc0cf;
+    --white:#ffffff;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    background:var(--charcoal); color:var(--white);
+    font-family:'Montserrat',sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  .card{ width:100%; max-width:480px; }
+  h1{
+    font-family:'Cormorant Garamond',serif; font-weight:500; font-size:1.8rem;
+    margin:0 0 6px;
+  }
+  p.sub{ color:rgba(255,255,255,.6); font-size:.85rem; margin:0 0 28px; }
+  label{
+    display:block; font-size:.66rem; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--text-blue); margin-bottom:8px; font-weight:600;
+  }
+  input[type=password]{
+    width:100%; background:transparent; border:none; border-bottom:1px solid rgba(255,255,255,.3);
+    padding-bottom:10px; font-size:1rem; color:var(--white);
+    font-family:'Cormorant Garamond',serif; font-style:italic;
+  }
+  input[type=password]:focus{ outline:none; border-color:var(--gold); }
+  button{
+    font-family:inherit; cursor:pointer; border:1px solid var(--gold); background:transparent; color:var(--gold);
+    letter-spacing:.15em; text-transform:uppercase; font-size:.72rem; font-weight:600;
+    padding:14px 28px; margin-top:24px; transition:.25s;
+  }
+  button:hover{ background:var(--gold); color:var(--charcoal); }
+  button:disabled{ opacity:.5; cursor:default; }
+  .error{ color:#e08787; font-size:.8rem; margin-top:14px; display:none; }
+  .error.show{ display:block; }
+
+  #dashboard{ display:none; width:100%; max-width:960px; }
+  #dashboard.show{ display:block; }
+  .toolbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+  .count{ font-size:.8rem; color:rgba(255,255,255,.6); }
+  table{ width:100%; border-collapse:collapse; font-size:.78rem; }
+  th, td{ text-align:left; padding:8px 10px; border-bottom:1px solid rgba(255,255,255,.1); white-space:nowrap; }
+  th{ color:var(--text-blue); text-transform:uppercase; letter-spacing:.06em; font-size:.62rem; font-weight:600; }
+  .table-wrap{ overflow-x:auto; max-height:60vh; overflow-y:auto; border:1px solid rgba(255,255,255,.1); }
+  .loading, .empty{ color:rgba(255,255,255,.5); font-size:.85rem; padding:20px 0; }
+</style>
+</head>
+<body>
+
+  <div class="card" id="loginCard">
+    <h1>Crivo Experience</h1>
+    <p class="sub">Área restrita — respostas dos convidados</p>
+    <label for="pwd">Senha</label>
+    <input type="password" id="pwd" placeholder="digite a senha" autofocus>
+    <div class="error" id="loginError">Senha incorreta.</div>
+    <button id="loginBtn">Entrar</button>
+  </div>
+
+  <div id="dashboard">
+    <div class="toolbar">
+      <h1 style="font-size:1.4rem; margin:0;">Respostas</h1>
+      <div style="display:flex; align-items:center; gap:16px;">
+        <span class="count" id="countLabel"></span>
+        <button id="downloadBtn">Baixar CSV (Excel)</button>
+      </div>
+    </div>
+    <div class="loading" id="loadingMsg">Carregando respostas...</div>
+    <div class="empty" id="emptyMsg" style="display:none;">Nenhuma resposta registrada ainda.</div>
+    <div class="table-wrap" id="tableWrap" style="display:none;">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th>Data/Hora</th>
+            <th>Origem</th>
+            <th>Nome</th>
+            <th>Empresa</th>
+            <th>Prato principal</th>
+            <th>Sobremesa</th>
+            <th>Bebidas</th>
+            <th>Restrição?</th>
+            <th>Detalhe restrição</th>
+            <th>Expectativas</th>
+            <th>Contribuição</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+  // ---- CHANGE THIS PASSWORD IF NEEDED ----
+  const ACCESS_PASSWORD = "Vp3hk3o4D9rMcU";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDTHPImkSvEnpPd-AzuvROq8oinwoDqUxk",
+    authDomain: "crivoexperience.firebaseapp.com",
+    projectId: "crivoexperience",
+    storageBucket: "crivoexperience.firebasestorage.app",
+    messagingSenderId: "470331174600",
+    appId: "1:470331174600:web:0648dccad309d05c70bffd"
+  };
+  let db = null;
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+  } catch (err) {
+    console.error('Firebase não carregou:', err);
+  }
+
+  let rows = [];
+
+  function fmtDate(ts){
+    if (!ts || !ts.toDate) return '';
+    const d = ts.toDate();
+    return d.toLocaleString('pt-BR');
+  }
+
+  function csvEscape(value){
+    const s = String(value ?? '');
+    if (/[",\n;]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  function renderTable(){
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      const cells = [
+        fmtDate(r.criadoEm),
+        r.origem || '',
+        r.nome || '',
+        r.empresa || '',
+        r.pratoPrincipal || '',
+        r.sobremesa || '',
+        (r.bebidas || []).join(', '),
+        r.restricaoAlimentar === 'sim' ? 'Sim' : (r.restricaoAlimentar === 'nao' ? 'Não' : ''),
+        r.restricaoDetalhe || '',
+        r.expectativas || '',
+        r.contribuicao || ''
+      ];
+      cells.forEach(c => {
+        const td = document.createElement('td');
+        td.textContent = c;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    document.getElementById('countLabel').textContent = rows.length + (rows.length === 1 ? ' resposta' : ' respostas');
+  }
+
+  async function loadData(){
+    document.getElementById('loadingMsg').style.display = 'block';
+    document.getElementById('emptyMsg').style.display = 'none';
+    document.getElementById('tableWrap').style.display = 'none';
+    if (!db) {
+      document.getElementById('loadingMsg').textContent = 'Não consegui conectar ao banco de dados agora. Recarregue a página e tente de novo.';
+      return;
+    }
+    try {
+      const snap = await db.collection('respostas').orderBy('criadoEm', 'desc').get();
+      rows = snap.docs.map(d => d.data());
+      document.getElementById('loadingMsg').style.display = 'none';
+      if (rows.length === 0) {
+        document.getElementById('emptyMsg').style.display = 'block';
+      } else {
+        document.getElementById('tableWrap').style.display = 'block';
+        renderTable();
+      }
+    } catch (err) {
+      console.error(err);
+      document.getElementById('loadingMsg').textContent = 'Erro ao carregar: ' + err.message;
+    }
+  }
+
+  function downloadCsv(){
+    const headers = ['Data/Hora','Origem','Nome','Empresa','Prato principal','Sobremesa','Bebidas','Restrição?','Detalhe restrição','Expectativas','Contribuição'];
+    const lines = [headers.map(csvEscape).join(';')];
+    rows.forEach(r => {
+      const cells = [
+        fmtDate(r.criadoEm),
+        r.origem || '',
+        r.nome || '',
+        r.empresa || '',
+        r.pratoPrincipal || '',
+        r.sobremesa || '',
+        (r.bebidas || []).join(', '),
+        r.restricaoAlimentar === 'sim' ? 'Sim' : (r.restricaoAlimentar === 'nao' ? 'Não' : ''),
+        r.restricaoDetalhe || '',
+        r.expectativas || '',
+        r.contribuicao || ''
+      ];
+      lines.push(cells.map(csvEscape).join(';'));
+    });
+    const csvContent = '\uFEFF' + lines.join('\r\n');
+    const blob = new Blob([csvContent], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'crivo-experience-respostas.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function tryLogin(){
+    const val = document.getElementById('pwd').value;
+    if (val === ACCESS_PASSWORD) {
+      document.getElementById('loginCard').style.display = 'none';
+      document.getElementById('dashboard').classList.add('show');
+      loadData();
+    } else {
+      document.getElementById('loginError').classList.add('show');
+    }
+  }
+
+  document.getElementById('loginBtn').addEventListener('click', tryLogin);
+  document.getElementById('pwd').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryLogin(); });
+  document.getElementById('downloadBtn').addEventListener('click', downloadCsv);
+</script>
+
+</body>
+</html>
